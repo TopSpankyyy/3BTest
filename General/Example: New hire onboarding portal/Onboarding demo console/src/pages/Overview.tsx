@@ -9,16 +9,20 @@ export function Overview() {
   const nav = useNavigate();
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [deptFilter, setDeptFilter] = useState<string>("all");
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 }>({ key: "urgency", dir: -1 });
+
+  const departments = useMemo(() => [...new Set((overview?.activeCases ?? []).map((c: any) => c.department as string))].sort(), [overview]);
 
   const rows = useMemo(() => {
     let r = [...(overview?.activeCases ?? [])];
     if (q) { const s = q.toLowerCase(); r = r.filter((c: any) => `${c.name} ${c.legalName} ${c.role} ${c.department} ${c.caseNumber} ${c.location}`.toLowerCase().includes(s)); }
     if (statusFilter !== "all") r = r.filter((c: any) => c.status === statusFilter);
+    if (deptFilter !== "all") r = r.filter((c: any) => c.department === deptFilter);
     const val = (c: any) => sort.key === "urgency" ? (c.status === "at_risk" ? 3 : c.status === "on_hold" ? 2 : c.pendingApprovals > 0 ? 1 : 0) * 1000 - c.readinessScore : sort.key === "readiness" ? c.readinessScore : sort.key === "start" ? new Date(c.startDate).getTime() : c.name;
     r.sort((a: any, b: any) => (val(a) > val(b) ? 1 : val(a) < val(b) ? -1 : 0) * sort.dir);
     return r;
-  }, [overview, q, statusFilter, sort]);
+  }, [overview, q, statusFilter, deptFilter, sort]);
 
   if (loading && !overview) return <div className="p-8"><Spinner label="Loading operations console" /></div>;
   if (error) return <div className="p-8"><ErrorState message={error} onRetry={refresh} /></div>;
@@ -80,6 +84,10 @@ export function Overview() {
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border px-2.5 py-1.5 text-xs" style={{ background: "var(--page)", borderColor: "var(--border)", color: "var(--text)" }} aria-label="Filter by status">
               <option value="all">All statuses</option>
               {Object.keys(STATUS).map((s) => <option key={s} value={s}>{STATUS[s].label}</option>)}
+            </select>
+            <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="rounded-lg border px-2.5 py-1.5 text-xs" style={{ background: "var(--page)", borderColor: "var(--border)", color: "var(--text)" }} aria-label="Filter by department">
+              <option value="all">All departments</option>
+              {departments.map((d) => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
           <Card className="overflow-hidden">
