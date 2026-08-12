@@ -1,0 +1,51 @@
+{
+  "post": {
+    "summary": "Apply a validated demo command to the onboarding state",
+    "description": "Space-authenticated command endpoint for the onboarding control plane. Commands are idempotent by commandId and enforce legal state transitions. RESET_DEMO requires payload.confirm === \"RESET\".",
+    "requestBody": {
+      "required": true,
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "required": ["commandId", "commandType"],
+            "properties": {
+              "commandId": { "type": "string", "description": "Unique id; repeated submission returns the original result without reapplying side effects." },
+              "commandType": {
+                "type": "string",
+                "enum": ["START_SCENARIO", "CORRECT_SOURCE_DATA", "APPROVE_REQUEST", "DENY_REQUEST", "ADVANCE_DEMO_TIME", "INJECT_TRANSIENT_FAILURE", "INJECT_PERMANENT_FAILURE", "INJECT_SHIPMENT_DELAY", "RESOLVE_BLOCKER", "REPLAY_TASK", "SUBMIT_CHECK_IN", "CHANGE_START_DATE", "CANCEL_HIRE", "PROCESS_TRANSFER", "EXPIRE_CONTRACTOR", "RESET_DEMO"]
+              },
+              "requestedAt": { "type": "string", "format": "date-time" },
+              "actor": { "type": "string" },
+              "caseId": { "type": "string" },
+              "expectedVersion": { "type": "integer", "description": "Optimistic concurrency; rejected with 409 if it does not match the current store version." },
+              "payload": { "type": "object", "additionalProperties": true }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "200": {
+        "description": "Command applied (or idempotently replayed).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "ok": { "type": "boolean" },
+                "message": { "type": "string" },
+                "version": { "type": "integer" },
+                "data": { "type": "object", "additionalProperties": true }
+              }
+            }
+          }
+        }
+      },
+      "400": { "description": "Malformed payload or invalid transition." },
+      "404": { "description": "Referenced case/approval/task not found." },
+      "409": { "description": "Stale expectedVersion." },
+      "422": { "description": "Confirmation or validation requirement not met." }
+    }
+  }
+}

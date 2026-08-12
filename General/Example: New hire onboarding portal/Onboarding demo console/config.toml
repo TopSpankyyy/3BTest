@@ -1,0 +1,5 @@
+output = true
+route = "/onboarding"
+route_auth = "space"
+route_type = "webpage"
+timeout = 45

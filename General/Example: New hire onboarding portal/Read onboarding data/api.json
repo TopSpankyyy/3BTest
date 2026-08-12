@@ -1,0 +1,29 @@
+{
+  "get": {
+    "summary": "Read onboarding projections (cases, reports, filters, export)",
+    "description": "Space-authenticated read-only API. Select a projection with the `resource` query parameter. Report/export accept multi-value filters as comma-separated query parameters (departments, regions, workerTypes, statuses, scenarios, blockerCategories, systems, cohorts, dateFrom, dateTo).",
+    "parameters": [
+      { "name": "resource", "in": "query", "required": true, "schema": { "type": "string", "enum": ["overview", "case", "report", "filters", "policy", "export"] } },
+      { "name": "id", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Case id or case number (required when resource=case)." },
+      { "name": "departments", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Comma-separated filter (report/export)." },
+      { "name": "regions", "in": "query", "required": false, "schema": { "type": "string" } },
+      { "name": "workerTypes", "in": "query", "required": false, "schema": { "type": "string" } },
+      { "name": "statuses", "in": "query", "required": false, "schema": { "type": "string" } },
+      { "name": "blockerCategories", "in": "query", "required": false, "schema": { "type": "string" } },
+      { "name": "systems", "in": "query", "required": false, "schema": { "type": "string" } },
+      { "name": "cohorts", "in": "query", "required": false, "schema": { "type": "string" } },
+      { "name": "dateFrom", "in": "query", "required": false, "schema": { "type": "string", "format": "date" } },
+      { "name": "dateTo", "in": "query", "required": false, "schema": { "type": "string", "format": "date" } }
+    ],
+    "responses": {
+      "200": {
+        "description": "Projection payload. Shape depends on `resource`. `resource=export` returns text/csv of the filtered case rows.",
+        "content": {
+          "application/json": { "schema": { "type": "object", "additionalProperties": true } },
+          "text/csv": { "schema": { "type": "string" } }
+        }
+      },
+      "404": { "description": "Case not found (resource=case)." }
+    }
+  }
+}

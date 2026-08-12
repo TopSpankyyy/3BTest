@@ -1,0 +1,6 @@
+color = "purple"
+output = true
+route = "/onboarding-command"
+route_auth = "space"
+route_type = "api"
+timeout = 60
