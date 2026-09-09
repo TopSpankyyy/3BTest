@@ -1,0 +1,5 @@
+color = "sky"
+output = true
+route = "/new-hire-list"
+route_type = "api"
+title = "List new hires"
