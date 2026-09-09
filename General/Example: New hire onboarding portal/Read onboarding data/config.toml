@@ -1,6 +1,0 @@
-color = "sky"
-output = true
-route = "/onboarding-read"
-route_auth = "space"
-route_type = "api"
-timeout = 45

@@ -1,5 +1,0 @@
-**Onboarding tests** runs the deterministic logic and integration suite against an in-memory seed (no volume needed). Run it via the step runner.
-
-It covers: seed/reset determinism, duplicate event ingestion, idempotent commands, legal/illegal transitions, policy resolution, privileged-approval requirements, requester self-approval rejection, segregation-of-duties, contractor expiration, parallel task eligibility and dependency ordering, transient retry, permanent-failure escalation, replay after success, missing-HRIS safe hold and correction, start-date change, cancellation with compensating revocation, internal-transfer revocation before close, readiness score vs the authoritative day-one gate, employee check-in blocker creation, week-two friction determinism, dashboard aggregate reconciliation, CSV export matching filters, and projection-rebuild consistency.
-
-Prints `N passed, M failed` and exits non-zero on any failure. The engine under test is mirrored from [`Control onboarding demo`](<../Control onboarding demo/script.ts>).
