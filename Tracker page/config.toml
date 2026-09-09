@@ -1,5 +1,0 @@
-color = "teal"
-output = true
-route = "/new-hire-tracker"
-route_type = "webpage"
-title = "New Hire Tracker"
