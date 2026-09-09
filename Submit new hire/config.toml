@@ -1,5 +1,0 @@
-color = "green"
-output = true
-route = "/new-hire-submit"
-route_type = "api"
-title = "Submit new hire"
