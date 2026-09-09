@@ -1,5 +1,0 @@
-color = "purple"
-output = true
-route = "/new-hire-form"
-route_type = "webpage"
-title = "New hire intake form"
