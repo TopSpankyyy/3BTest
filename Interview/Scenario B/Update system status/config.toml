@@ -3,3 +3,5 @@ output = true
 route = "/new-hire-system-status"
 route_type = "api"
 title = "Update system status"
+
+links = ["Sync to sheet"]

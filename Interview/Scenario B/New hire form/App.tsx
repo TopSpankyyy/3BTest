@@ -8,12 +8,17 @@ const SYSTEMS = [
   { key: "clinical_apps", label: "Clinical Apps (Med Dispensing, Revenue Cycle)" },
 ];
 
-const FIELDS = [
+const FIELDS: {
+  name: string;
+  label: string;
+  type: string;
+  placeholder?: string;
+}[] = [
   { name: "full_name", label: "Full name", type: "text", placeholder: "Dana Whitfield" },
   { name: "email", label: "Work email", type: "email", placeholder: "dwhitfield@example.org" },
   { name: "department", label: "Team", type: "text", placeholder: "Cardiology" },
   { name: "job_title", label: "Role", type: "text", placeholder: "Registered Nurse" },
-  { name: "start_date", label: "Start date", type: "text", placeholder: "Aug 24 or 2026-08-24" },
+  { name: "start_date", label: "Start date", type: "date" },
   { name: "manager_name", label: "Manager", type: "text", placeholder: "Alex Reyes" },
 ];
 
@@ -120,7 +125,11 @@ export default function App() {
                       onChange={(e) =>
                         setValues({ ...values, [field.name]: e.target.value })
                       }
-                      className="mt-2 w-full border-b-2 border-teal-950/25 bg-transparent px-1 py-2 text-base outline-none transition focus:border-teal-700 placeholder:text-teal-950/30"
+                      className={`mt-2 w-full border-b-2 border-teal-950/25 bg-transparent px-1 py-2 text-base outline-none transition focus:border-teal-700 placeholder:text-teal-950/30 ${
+                        field.type === "date"
+                          ? "[&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60"
+                          : ""
+                      }`}
                     />
                   </label>
                 ))}
