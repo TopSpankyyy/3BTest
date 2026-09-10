@@ -14,7 +14,11 @@ HR submits the form → [Submit new hire](<Submit new hire/script.ts>) inserts a
 
 [Auto provision](<Auto provision/script.ts>) removes most of the clicking: it runs every minute (and immediately after a submission) and, for any hire whose start date is a week or less away, advances services left to right — one to `In Progress`, then `Done` after 7 seconds for the hire's first service and 2.5 seconds for each service after it — looping through itself so each intermediate state shows on the tracker and in the sheet.
 
+To demonstrate failure handling, hires whose name starts with `A` get their second service `Blocked` with a random service-specific error (recorded in the row's `blocked_notes` JSON). Provisioning carries on through the remaining services, the tracker shows the error on hover, and the hire cannot reach `Complete` until a helpdesk user clicks the blocked service to `Done`. Each block also fires [Blocked alert](<Blocked alert/script.ts>), which emails the helpdesk the hire's name, the blocked service, and the error message.
+
 All writers also link to [Sync to sheet](<Sync to sheet/script.ts>), which rewrites a Google Sheet with the same table — including pale status highlighting — so the sheet stays in step with the tracker page.
+
+[Welcome email](<Welcome email/script.ts>) runs on its own schedule at 8am Eastern and emails every hire starting that day, telling them which services they can already log into and which are still being provisioned. It is written to the hire but redirected to a review inbox — see [its README](<Welcome email/README.md>).
 
 **Storage**
 

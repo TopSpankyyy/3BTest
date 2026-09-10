@@ -29,6 +29,7 @@ const FILLS: Record<string, { red: number; green: number; blue: number }> = {
   Requested: { red: 0.82, green: 0.89, blue: 0.98 },
   "In Progress": { red: 1, green: 0.95, blue: 0.75 },
   Done: { red: 0.83, green: 0.93, blue: 0.84 },
+  Blocked: { red: 0.98, green: 0.81, blue: 0.81 },
   Complete: { red: 0.83, green: 0.93, blue: 0.84 },
 };
 
@@ -82,11 +83,17 @@ if ((grid.rowCount ?? 0) < rowCount || (grid.columnCount ?? 0) < columnCount) {
 
 const statusColumns = new Set([6, ...SYSTEMS.map((_, i) => 7 + i)]);
 
-function cell(value: string | null, columnIndex: number, isHeader: boolean) {
+function cell(
+  value: string | null,
+  columnIndex: number,
+  isHeader: boolean,
+  note?: string,
+) {
   const fill =
     !isHeader && statusColumns.has(columnIndex) && value ? FILLS[value] : undefined;
   return {
     userEnteredValue: { stringValue: value ?? "" },
+    note: note ?? "",
     userEnteredFormat: {
       backgroundColor: fill ?? { red: 1, green: 1, blue: 1 },
       textFormat: { bold: isHeader },
@@ -96,9 +103,20 @@ function cell(value: string | null, columnIndex: number, isHeader: boolean) {
   };
 }
 
+// Auto provision records the failure reason for each blocked service as a JSON map.
+function blockedNotes(hire: Hire): Record<string, string> {
+  try {
+    const parsed = JSON.parse(String(hire.blocked_notes ?? "") || "{}");
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
 const rows = [
   { values: HEADERS.map((h, i) => cell(h, i, true)) },
   ...hires.map((hire) => {
+    const notes = blockedNotes(hire);
     const values = [
       String(hire.full_name ?? ""),
       String(hire.email ?? ""),
@@ -109,7 +127,11 @@ const rows = [
       String(hire.status ?? ""),
       ...SYSTEMS.map((s) => (hire[s.key] === null ? "—" : String(hire[s.key]))),
     ];
-    return { values: values.map((v, i) => cell(v, i, false)) };
+    const cellNotes = [
+      ...Array(7).fill(undefined),
+      ...SYSTEMS.map((s) => (hire[s.key] === "Blocked" ? notes[s.key] : undefined)),
+    ];
+    return { values: values.map((v, i) => cell(v, i, false, cellNotes[i])) };
   }),
 ];
 
@@ -117,13 +139,13 @@ const rows = [
 requests.push({
   updateCells: {
     range: { sheetId },
-    fields: "userEnteredValue,userEnteredFormat",
+    fields: "userEnteredValue,userEnteredFormat,note",
   },
 });
 requests.push({
   updateCells: {
     rows,
-    fields: "userEnteredValue,userEnteredFormat",
+    fields: "userEnteredValue,userEnteredFormat,note",
     start: { sheetId, rowIndex: 0, columnIndex: 0 },
   },
 });

@@ -1,0 +1,4 @@
+color = "green"
+cron = "0 12 * * *"
+connectors = [{ name = "resend", type = "resend" }]
+timeout = 60
