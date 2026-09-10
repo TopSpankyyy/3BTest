@@ -1,0 +1,5 @@
+color = "pink"
+cron = "* * * * *"
+timeout = 60
+
+links = ["Sync to sheet", "Auto provision"]
