@@ -1,0 +1,3 @@
+color = "red"
+connectors = [{ name = "resend", type = "resend" }]
+timeout = 60

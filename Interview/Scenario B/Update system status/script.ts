@@ -7,7 +7,7 @@ const SYSTEM_KEYS = [
   "badge_system",
   "clinical_apps",
 ];
-const SYSTEM_STATUSES = ["Pending", "In Progress", "Done"];
+const SYSTEM_STATUSES = ["Pending", "In Progress", "Done", "Blocked"];
 
 function respond(status: number, body: unknown) {
   const payload = JSON.stringify(body);
@@ -55,6 +55,24 @@ if (hire[system] === null) {
 }
 
 db.run(`UPDATE NewHires SET ${system} = ? WHERE id = ?`, [status, id]);
+
+// The recorded failure reason only applies while the service is Blocked.
+if (status !== "Blocked") {
+  let notes: Record<string, string> = {};
+  try {
+    const parsed = JSON.parse(hire.blocked_notes ?? "{}");
+    if (parsed && typeof parsed === "object") notes = parsed as Record<string, string>;
+  } catch {
+    notes = {};
+  }
+  if (system in notes) {
+    delete notes[system];
+    db.run(`UPDATE NewHires SET blocked_notes = ? WHERE id = ?`, [
+      Object.keys(notes).length ? JSON.stringify(notes) : null,
+      id,
+    ]);
+  }
+}
 
 const updated = db.query(`SELECT * FROM NewHires WHERE id = ?`).get(id) as Record<
   string,

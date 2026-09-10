@@ -13,6 +13,7 @@ const systemStyles: Record<string, string> = {
   Pending: "border-teal-950/20 bg-stone-100 text-teal-900",
   "In Progress": "border-amber-500 bg-amber-100 text-amber-900",
   Done: "border-emerald-700 bg-emerald-700 text-stone-50",
+  Blocked: "border-red-700 bg-red-700 text-stone-50",
 };
 
 const overallStyles: Record<string, string> = {
@@ -55,12 +56,62 @@ function expectedInProgress(startDate: unknown): string {
   return `Expected to move to In Progress on ${label} (${when}) — one week before the ${new Date(start).toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: "UTC" })} start date.`;
 }
 
+// Auto provision records the failure reason for each blocked service as a JSON map.
+function blockedError(hire: Hire, systemKey: string): string | null {
+  try {
+    const notes = JSON.parse(String(hire.blocked_notes ?? "") || "{}");
+    const message = notes?.[systemKey];
+    return typeof message === "string" && message ? message : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function App() {
   const [systems, setSystems] = useState<System[]>([]);
   const [hires, setHires] = useState<Hire[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const busyRef = useRef<string | null>(null);
+  // The table scrolls horizontally, which would clip an in-cell tooltip, so the
+  // hover note is rendered once in a fixed layer positioned from the button's rect.
+  const [tip, setTip] = useState<{
+    text: string;
+    blocked: boolean;
+    x: number;
+    y: number;
+    below: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    const clear = () => setTip(null);
+    window.addEventListener("scroll", clear, true);
+    window.addEventListener("resize", clear);
+    return () => {
+      window.removeEventListener("scroll", clear, true);
+      window.removeEventListener("resize", clear);
+    };
+  }, []);
+
+  function showTip(
+    element: HTMLElement,
+    text: string,
+    blocked: boolean,
+  ) {
+    const rect = element.getBoundingClientRect();
+    // Flip below the button when there is not enough room above it, and keep the
+    // 224px-wide tooltip inside the viewport horizontally.
+    const below = rect.top < 150;
+    const half = 116;
+    const centre = rect.left + rect.width / 2;
+    setTip({
+      text,
+      blocked,
+      x: Math.min(Math.max(centre, half), window.innerWidth - half),
+      y: below ? rect.bottom + 8 : rect.top - 8,
+      below,
+    });
+  }
 
   const load = useCallback(async () => {
     const res = await fetch(withBranch("/new-hire-list"));
@@ -89,8 +140,13 @@ export default function App() {
 
   async function cycle(hire: Hire, systemKey: string) {
     const current = String(hire[systemKey]);
+    // A blocked service is cleared by resolving it to Done.
     const next =
-      SYSTEM_STATUSES[(SYSTEM_STATUSES.indexOf(current as never) + 1) % SYSTEM_STATUSES.length];
+      current === "Blocked"
+        ? "Done"
+        : SYSTEM_STATUSES[
+            (SYSTEM_STATUSES.indexOf(current as never) + 1) % SYSTEM_STATUSES.length
+          ];
     const token = `${hire.id}:${systemKey}`;
     busyRef.current = token;
     setBusy(token);
@@ -226,30 +282,32 @@ export default function App() {
                         </td>
                       );
                     }
-                    const pendingNote =
-                      String(value) === "Pending" ? expectedInProgress(hire.start_date) : null;
+                    const isBlocked = String(value) === "Blocked";
+                    const note = isBlocked
+                      ? (blockedError(hire, system.key) ?? "Provisioning failed.")
+                      : String(value) === "Pending"
+                        ? expectedInProgress(hire.start_date)
+                        : null;
                     return (
                       <td key={system.key} className="px-3 py-3">
-                        <div className="group relative inline-block">
-                          <button
-                            onClick={() => cycle(hire, system.key)}
-                            disabled={busy === token}
-                            title={pendingNote ? undefined : "Click to advance status"}
-                            className={`w-28 border-2 px-2 py-1.5 text-xs font-semibold transition hover:-translate-y-px disabled:opacity-50 ${
-                              systemStyles[String(value)]
-                            }`}
-                          >
-                            {busy === token ? "…" : String(value)}
-                          </button>
-                          {pendingNote && (
-                            <span
-                              role="tooltip"
-                              className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden w-56 -translate-x-1/2 border-2 border-teal-950 bg-teal-950 px-3 py-2 text-left text-xs leading-snug font-normal text-stone-50 shadow-[3px_3px_0_0_rgba(19,78,74,0.35)] group-hover:block"
-                            >
-                              {pendingNote}
-                            </span>
-                          )}
-                        </div>
+                        <button
+                          onClick={() => cycle(hire, system.key)}
+                          disabled={busy === token}
+                          title={note ? undefined : "Click to advance status"}
+                          onMouseEnter={
+                            note ? (e) => showTip(e.currentTarget, note, isBlocked) : undefined
+                          }
+                          onFocus={
+                            note ? (e) => showTip(e.currentTarget, note, isBlocked) : undefined
+                          }
+                          onMouseLeave={note ? () => setTip(null) : undefined}
+                          onBlur={note ? () => setTip(null) : undefined}
+                          className={`w-28 border-2 px-2 py-1.5 text-xs font-semibold transition hover:-translate-y-px disabled:opacity-50 ${
+                            systemStyles[String(value)]
+                          }`}
+                        >
+                          {busy === token ? "…" : String(value)}
+                        </button>
                       </td>
                     );
                   })}
@@ -260,10 +318,38 @@ export default function App() {
         </div>
 
         <p className="mt-4 text-xs text-teal-900/60">
-          Click a system status to cycle it: Pending → In Progress → Done. When every
-          requested system is Done, the overall status becomes Complete.
+          Click a system status to cycle it: Pending → In Progress → Done. A Blocked
+          service shows its failure reason on hover and goes straight to Done when
+          clicked. The overall status only becomes Complete once every requested system
+          is Done.
         </p>
       </div>
+
+      {tip && (
+        <div
+          role="tooltip"
+          style={{
+            left: `${tip.x}px`,
+            top: `${tip.y}px`,
+            transform: tip.below ? "translate(-50%, 0)" : "translate(-50%, -100%)",
+          }}
+          className={`pointer-events-none fixed z-50 w-56 border-2 px-3 py-2 text-left text-xs leading-snug font-normal text-stone-50 shadow-[3px_3px_0_0_rgba(19,78,74,0.35)] ${
+            tip.blocked ? "border-red-900 bg-red-800" : "border-teal-950 bg-teal-950"
+          }`}
+        >
+          {tip.blocked && (
+            <span className="mb-1 block font-semibold uppercase tracking-wide">
+              Provisioning failed
+            </span>
+          )}
+          {tip.text}
+          {tip.blocked && (
+            <span className="mt-1 block text-red-100/80">
+              Click to mark it Done once resolved.
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

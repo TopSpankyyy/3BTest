@@ -75,8 +75,15 @@ db.run(`CREATE TABLE IF NOT EXISTS NewHires (
   manager_name TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'In Progress',
   created_at TEXT NOT NULL,
+  blocked_notes TEXT,
   ${SYSTEMS.map((s) => `${s.key} TEXT`).join(",\n  ")}
 )`);
+
+// Older databases predate blocked_notes, which holds a JSON map of system key -> failure reason.
+const hasBlockedNotes = (
+  db.query(`PRAGMA table_info(NewHires)`).all() as { name: string }[]
+).some((c) => c.name === "blocked_notes");
+if (!hasBlockedNotes) db.run(`ALTER TABLE NewHires ADD COLUMN blocked_notes TEXT`);
 
 const columns = [...required, "status", "created_at", ...SYSTEMS.map((s) => s.key)];
 const values = [
