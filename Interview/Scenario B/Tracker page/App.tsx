@@ -21,6 +21,40 @@ const overallStyles: Record<string, string> = {
   Complete: "bg-emerald-700 text-stone-50",
 };
 
+const DAY = 86_400_000;
+
+// Provisioning is expected to start one week before the hire's start date.
+function expectedInProgress(startDate: unknown): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(startDate ?? "").trim());
+  if (!match) return "Expected to move to In Progress one week before the start date.";
+
+  const start = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  const expected = start - 7 * DAY;
+  const label = new Date(expected).toLocaleDateString(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+
+  const now = new Date();
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((expected - today) / DAY);
+  const when =
+    days > 1
+      ? `in ${days} days`
+      : days === 1
+        ? "tomorrow"
+        : days === 0
+          ? "today"
+          : days === -1
+            ? "1 day overdue"
+            : `${-days} days overdue`;
+
+  return `Expected to move to In Progress on ${label} (${when}) — one week before the ${new Date(start).toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: "UTC" })} start date.`;
+}
+
 export default function App() {
   const [systems, setSystems] = useState<System[]>([]);
   const [hires, setHires] = useState<Hire[] | null>(null);
@@ -176,18 +210,30 @@ export default function App() {
                         </td>
                       );
                     }
+                    const pendingNote =
+                      String(value) === "Pending" ? expectedInProgress(hire.start_date) : null;
                     return (
                       <td key={system.key} className="px-3 py-3">
-                        <button
-                          onClick={() => cycle(hire, system.key)}
-                          disabled={busy === token}
-                          title="Click to advance status"
-                          className={`w-28 border-2 px-2 py-1.5 text-xs font-semibold transition hover:-translate-y-px disabled:opacity-50 ${
-                            systemStyles[String(value)]
-                          }`}
-                        >
-                          {busy === token ? "…" : String(value)}
-                        </button>
+                        <div className="group relative inline-block">
+                          <button
+                            onClick={() => cycle(hire, system.key)}
+                            disabled={busy === token}
+                            title={pendingNote ? undefined : "Click to advance status"}
+                            className={`w-28 border-2 px-2 py-1.5 text-xs font-semibold transition hover:-translate-y-px disabled:opacity-50 ${
+                              systemStyles[String(value)]
+                            }`}
+                          >
+                            {busy === token ? "…" : String(value)}
+                          </button>
+                          {pendingNote && (
+                            <span
+                              role="tooltip"
+                              className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden w-56 -translate-x-1/2 border-2 border-teal-950 bg-teal-950 px-3 py-2 text-left text-xs leading-snug font-normal text-stone-50 shadow-[3px_3px_0_0_rgba(19,78,74,0.35)] group-hover:block"
+                            >
+                              {pendingNote}
+                            </span>
+                          )}
+                        </div>
                       </td>
                     );
                   })}
