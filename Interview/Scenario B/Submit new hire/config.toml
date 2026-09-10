@@ -3,3 +3,5 @@ output = true
 route = "/new-hire-submit"
 route_type = "api"
 title = "Submit new hire"
+
+links = ["Sync to sheet"]

@@ -1,0 +1,3 @@
+color = "purple"
+connectors = [{ name = "google-sheets", type = "googleSheets" }]
+timeout = 120
