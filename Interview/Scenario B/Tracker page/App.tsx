@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type System = { key: string; label: string };
 type Hire = Record<string, string | number | null>;
@@ -60,6 +60,7 @@ export default function App() {
   const [hires, setHires] = useState<Hire[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const busyRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch(withBranch("/new-hire-list"));
@@ -70,7 +71,20 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    load().catch((err) => setError(err.message));
+    let cancelled = false;
+    const tick = () => {
+      if (busyRef.current) return;
+      load().catch((err) => {
+        if (!cancelled) setError(err.message);
+      });
+    };
+    tick();
+    // Auto provision advances services in the background, so keep the grid live.
+    const timer = setInterval(tick, 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, [load]);
 
   async function cycle(hire: Hire, systemKey: string) {
@@ -78,6 +92,7 @@ export default function App() {
     const next =
       SYSTEM_STATUSES[(SYSTEM_STATUSES.indexOf(current as never) + 1) % SYSTEM_STATUSES.length];
     const token = `${hire.id}:${systemKey}`;
+    busyRef.current = token;
     setBusy(token);
     setError(null);
     try {
@@ -92,6 +107,7 @@ export default function App() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Update failed");
     } finally {
+      busyRef.current = null;
       setBusy(null);
     }
   }
