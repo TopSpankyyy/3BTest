@@ -4,7 +4,8 @@ type System = { key: string; label: string };
 type Hire = Record<string, string | number | null>;
 
 const SYSTEM_STATUSES = ["Pending", "In Progress", "Done"] as const;
-const OVERALL = ["Requested", "In Progress", "Complete"] as const;
+// Rows are created as In Progress, so "Requested" is never a stored status.
+const OVERALL = ["In Progress", "Complete"] as const;
 
 const branch = new URLSearchParams(window.location.search).get("branch");
 const withBranch = (path: string) => (branch ? `${path}?branch=${branch}` : path);
@@ -20,6 +21,30 @@ const overallStyles: Record<string, string> = {
   Requested: "bg-stone-200 text-teal-900",
   "In Progress": "bg-amber-500 text-teal-950",
   Complete: "bg-emerald-700 text-stone-50",
+  Blocked: "bg-red-700 text-stone-50",
+};
+
+// A hire whose services include a blocked one is surfaced as Blocked overall.
+function isHireBlocked(hire: Hire, systems: System[]): boolean {
+  return systems.some((s) => String(hire[s.key]) === "Blocked");
+}
+
+function overallStatus(hire: Hire, systems: System[]): string {
+  return isHireBlocked(hire, systems) ? "Blocked" : String(hire.status);
+}
+
+const SYSTEM_RANK: Record<string, number> = {
+  Blocked: 0,
+  Pending: 1,
+  "In Progress": 2,
+  Done: 3,
+};
+
+const OVERALL_RANK: Record<string, number> = {
+  Blocked: 0,
+  Requested: 1,
+  "In Progress": 2,
+  Complete: 3,
 };
 
 const DAY = 86_400_000;
@@ -72,6 +97,10 @@ export default function App() {
   const [hires, setHires] = useState<Hire[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [sort, setSort] = useState<{ key: string; dir: 1 | -1 }>({
+    key: "start_date",
+    dir: 1,
+  });
   const busyRef = useRef<string | null>(null);
   // The table scrolls horizontally, which would clip an in-cell tooltip, so the
   // hover note is rendered once in a fixed layer positioned from the button's rect.
@@ -169,7 +198,66 @@ export default function App() {
   }
 
   const counts = Object.fromEntries(
-    OVERALL.map((s) => [s, (hires ?? []).filter((h) => h.status === s).length]),
+    OVERALL.map((s) => [
+      s,
+      (hires ?? []).filter((h) => overallStatus(h, systems) === s).length,
+    ]),
+  );
+
+  function sortValue(hire: Hire, key: string): string | number {
+    if (key === "status") return OVERALL_RANK[overallStatus(hire, systems)] ?? 9;
+    if (systems.some((s) => s.key === key)) {
+      const value = hire[key];
+      // Services the hire does not need sort last.
+      return value === null ? 9 : (SYSTEM_RANK[String(value)] ?? 8);
+    }
+    return String(hire[key] ?? "").toLowerCase();
+  }
+
+  // Blocked hires stay pinned to the top whichever column is sorted.
+  const rows = [...(hires ?? [])].sort((a, b) => {
+    const blockedDiff =
+      Number(isHireBlocked(b, systems)) - Number(isHireBlocked(a, systems));
+    if (blockedDiff) return blockedDiff;
+    const left = sortValue(a, sort.key);
+    const right = sortValue(b, sort.key);
+    if (left < right) return -sort.dir;
+    if (left > right) return sort.dir;
+    return String(a.full_name ?? "").localeCompare(String(b.full_name ?? ""));
+  });
+
+  function toggleSort(key: string) {
+    setSort((current) =>
+      current.key === key
+        ? { key, dir: current.dir === 1 ? -1 : 1 }
+        : { key, dir: 1 },
+    );
+  }
+
+  const SortHeader = ({
+    columnKey,
+    label,
+    className = "px-4 py-3",
+  }: {
+    columnKey: string;
+    label: string;
+    className?: string;
+  }) => (
+    <th className={`${className} text-left font-semibold`} aria-sort={
+      sort.key === columnKey ? (sort.dir === 1 ? "ascending" : "descending") : "none"
+    }>
+      <button
+        onClick={() => toggleSort(columnKey)}
+        className="group inline-flex items-center gap-1.5 text-left uppercase tracking-wide text-[11px] transition hover:text-amber-300"
+      >
+        {label}
+        <span
+          className={`text-[10px] ${sort.key === columnKey ? "text-amber-300" : "text-stone-50/30 group-hover:text-amber-300/60"}`}
+        >
+          {sort.key === columnKey ? (sort.dir === 1 ? "▲" : "▼") : "▲"}
+        </span>
+      </button>
+    </th>
   );
 
   return (
@@ -212,6 +300,14 @@ export default function App() {
               <p className="serif mt-2 text-4xl leading-none">{counts[label] ?? 0}</p>
             </div>
           ))}
+          <div className="border-2 border-red-800 bg-red-700 px-6 py-5 text-stone-50 shadow-[4px_4px_0_0_rgba(127,29,29,0.9)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-100">
+              Blocked
+            </p>
+            <p className="serif mt-2 text-4xl leading-none">
+              {(hires ?? []).filter((h) => isHireBlocked(h, systems)).length}
+            </p>
+          </div>
         </section>
 
         {error && (
@@ -224,15 +320,18 @@ export default function App() {
           <table className="w-full min-w-[1000px] border-collapse text-sm">
             <thead>
               <tr className="bg-teal-950 text-stone-50">
-                <th className="px-4 py-3 text-left font-semibold">New hire</th>
-                <th className="px-4 py-3 text-left font-semibold">Department / title</th>
-                <th className="px-4 py-3 text-left font-semibold">Start</th>
-                <th className="px-4 py-3 text-left font-semibold">Manager</th>
-                <th className="px-4 py-3 text-left font-semibold">Status</th>
+                <SortHeader columnKey="full_name" label="New hire" />
+                <SortHeader columnKey="department" label="Department / title" />
+                <SortHeader columnKey="start_date" label="Start" />
+                <SortHeader columnKey="manager_name" label="Manager" />
+                <SortHeader columnKey="status" label="Status" />
                 {systems.map((s) => (
-                  <th key={s.key} className="px-3 py-3 text-left font-semibold">
-                    {s.label}
-                  </th>
+                  <SortHeader
+                    key={s.key}
+                    columnKey={s.key}
+                    label={s.label}
+                    className="px-3 py-3"
+                  />
                 ))}
               </tr>
             </thead>
@@ -251,7 +350,7 @@ export default function App() {
                   </td>
                 </tr>
               )}
-              {hires?.map((hire) => (
+              {rows.map((hire) => (
                 <tr key={String(hire.id)} className="border-t border-teal-950/10 align-middle">
                   <td className="px-4 py-3">
                     <div className="font-medium">{String(hire.full_name)}</div>
@@ -266,10 +365,10 @@ export default function App() {
                   <td className="px-4 py-3">
                     <span
                       className={`inline-block rounded-sm px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
-                        overallStyles[String(hire.status)] ?? "bg-stone-200"
+                        overallStyles[overallStatus(hire, systems)] ?? "bg-stone-200"
                       }`}
                     >
-                      {String(hire.status)}
+                      {overallStatus(hire, systems)}
                     </span>
                   </td>
                   {systems.map((system) => {
@@ -321,7 +420,9 @@ export default function App() {
           Click a system status to cycle it: Pending → In Progress → Done. A Blocked
           service shows its failure reason on hover and goes straight to Done when
           clicked. The overall status only becomes Complete once every requested system
-          is Done.
+          is Done. Click any column header to sort by it (click again to reverse);
+          hires with a blocked service show a red Blocked status and stay pinned to
+          the top. Rows are sorted by start date by default.
         </p>
       </div>
 
